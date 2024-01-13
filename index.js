@@ -6,7 +6,7 @@ const port = 3000;
 // Middlewares! functions that captures/Interceps the request from user before reaching it to the route callback,
 // processes the request, and send request to the callback using next();
 
-// Getting the total number of request to the server!
+// Getting the total number of request to the server!!
 let requests = 0;
 // This is a global middleware, and captures all the requests coming to any route, doesnt matter!
 const middleware = (req, res, next) => {
