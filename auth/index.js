@@ -1,7 +1,9 @@
 const express = require("express");
+const dotenv = require("dotenv").config();
+const jwt = require("jsonwebtoken");
 const bodyParser = require("body-parser");
+const port = process.env.SERVER_PORT;
 const app = express();
-const port = 8080;
 
 let User = [];
 let Admin = [];
@@ -9,36 +11,60 @@ let Courses = [];
 
 app.use(bodyParser.json());
 
+const generateAdminToken = (payload) => {
+  const token = jwt.sign(payload, process.env.ADMIN_JWT_SECRET);
+  return token;
+};
+
+const generateUserToken = (payload) => {
+  const token = jwt.sign(payload, process.env.USER_JWT_SECRET);
+  return token;
+};
+
 const adminAuth = (req, res, next) => {
-  const { username, password } = req.headers;
+  const adminAuthorization = req.headers.authorization;
+  const token = adminAuthorization.split(" ")[1];
 
-  const ifAdmin = Admin.find(
-    (admin) => admin.username === username && admin.password === password,
+  const adminVerification = jwt.verify(
+    token,
+    process.env.ADMIN_JWT_SECRET,
+    (err, username) => {
+      const admin = Admin.find((admin) => admin.username === username);
+
+      if (err || !admin) {
+        res.status(403).json({
+          message: "Admin access denied!",
+        });
+      } else {
+        console.log(`${admin.username} is logged in!`);
+        console.log(Admin);
+        req.admin = admin;
+        next();
+      }
+    },
   );
-
-  if (ifAdmin) {
-    next();
-  } else {
-    res.status(403).json({
-      message: "Admin not authenticated",
-    });
-  }
 };
 
 const userAuth = (req, res, next) => {
-  const { username, password } = req.headers;
+  const userAutherization = req.headers.authorization;
+  const token = userAutherization.split(" ")[1];
 
-  const ifUser = User.find(
-    (user) => user.username === username && user.password === password,
+  const userVerfication = jwt.verify(
+    token,
+    process.env.USER_JWT_SECRET,
+    (err, username) => {
+      if (err) {
+        res.status(403).json({
+          message: "User access denied",
+        });
+      }
+
+      const user = User.find((user) => user.username === username);
+      console.log(`${user.username} is loggedin!`);
+      req.user = user;
+      next();
+    },
   );
-
-  if (ifUser) {
-    next();
-  } else {
-    res.status(403).json({
-      message: "User not authenticated",
-    });
-  }
 };
 
 app.get("/", (req, res) => {
@@ -61,19 +87,32 @@ app.post("/admin/signup", (req, res) => {
       message: "User already exists, please sign in!",
     });
   } else {
+    const adminToken = generateAdminToken(username);
     Admin.push({ username, password });
+    console.log(`Admin - ${username} just signedup!`);
     console.log(Admin);
     res.status(403).json({
       message: "Admin created succesfully!",
+      token: adminToken,
     });
   }
 });
 
 // signin Admin !
-app.post("/admin/singin", adminAuth, (req, res) => {
-  res.json({
-    message: "Logged in succesfully!",
-  });
+app.post("/admin/login", (req, res) => {
+  const { username, password } = req.headers;
+  const admin = Admin.find(
+    (admin) => admin.username === username && admin.password === password,
+  );
+
+  if (admin) {
+    const adminToken = generateAdminToken(admin.username);
+    console.log(`Admin - ${username} just logged in!`);
+    console.log(Admin);
+    res.json({ message: "Logged in successfully", token: adminToken });
+  } else {
+    res.status(403).json({ message: "Admin authentication failed" });
+  }
 });
 
 // make cources !
@@ -128,20 +167,35 @@ app.post("/users/signup", (req, res) => {
       message: "User already exists, please signin!",
     });
   } else {
+    const userToken = generateUserToken(username);
     User.push({ username, password, purchasedCourses: [] });
     console.log(User);
     res.json({
       message: "User created succesfully!",
+      token: userToken,
     });
   }
 });
 
 // user signin!
 app.post("/users/login", userAuth, (req, res) => {
-  console.log(User);
-  res.json({
-    message: "user loggedin succesfully!",
-  });
+  const { username, password } = req.headers;
+  const user = User.find(
+    (user) => user.username === username && user.password === password,
+  );
+
+  if (user) {
+    const userToken = generateUserToken(username);
+    console.log(User);
+    res.json({
+      message: "user loggedin succesfully!",
+      token: userToken,
+    });
+  } else {
+    res.status(403).json({
+      message: "User not authenticated!",
+    });
+  }
 });
 
 // list pusblished courses to user!

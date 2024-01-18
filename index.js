@@ -1,4 +1,5 @@
 const express = require("express");
+const dotenv = require("dotenv").config();
 const bodyParser = require("body-parser"); // this lib parses body for us!
 const app = express();
 const port = 3000;
