@@ -53,16 +53,17 @@ const userAuth = (req, res, next) => {
     token,
     process.env.USER_JWT_SECRET,
     (err, username) => {
-      if (err) {
+      const user = User.find((user) => user.username === username);
+
+      if (err || !user) {
         res.status(403).json({
           message: "User access denied",
         });
+      } else {
+        console.log(`${username} is logged in!`);
+        req.user = user;
+        next();
       }
-
-      const user = User.find((user) => user.username === username);
-      console.log(`${user.username} is loggedin!`);
-      req.user = user;
-      next();
     },
   );
 };
@@ -107,7 +108,7 @@ app.post("/admin/login", (req, res) => {
 
   if (admin) {
     const adminToken = generateAdminToken(admin.username);
-    console.log(`Admin - ${username} just logged in!`);
+    console.log(`Admin - ${username} just loggedin!`);
     console.log(Admin);
     res.json({ message: "Logged in successfully", token: adminToken });
   } else {
@@ -169,6 +170,7 @@ app.post("/users/signup", (req, res) => {
   } else {
     const userToken = generateUserToken(username);
     User.push({ username, password, purchasedCourses: [] });
+    console.log(`User - ${username} just signed up!`);
     console.log(User);
     res.json({
       message: "User created succesfully!",
@@ -178,7 +180,7 @@ app.post("/users/signup", (req, res) => {
 });
 
 // user signin!
-app.post("/users/login", userAuth, (req, res) => {
+app.post("/users/login", (req, res) => {
   const { username, password } = req.headers;
   const user = User.find(
     (user) => user.username === username && user.password === password,
@@ -186,6 +188,7 @@ app.post("/users/login", userAuth, (req, res) => {
 
   if (user) {
     const userToken = generateUserToken(username);
+    console.log(`${user.username} just logged in!`);
     console.log(User);
     res.json({
       message: "user loggedin succesfully!",
@@ -218,7 +221,8 @@ app.post("/users/courses/:courseId", userAuth, (req, res) => {
     (course) => course.id === purchasedCourseId && course.published,
   );
 
-  const user = User.find((user) => user.username === req.headers.username);
+  // const user = User.find((user) => user.username === req.headers.username);
+  const user = req.user;
 
   if (purchasedCourse) {
     user.purchasedCourses.push(purchasedCourse);
@@ -233,7 +237,8 @@ app.post("/users/courses/:courseId", userAuth, (req, res) => {
 
 // list all purchased courses by user!
 app.get("/users/purchasedCourses", userAuth, (req, res) => {
-  const user = User.find((user) => user.username === req.headers.username);
+  // const user = User.find((user) => user.username === req.headers.username);
+  const user = req.user;
 
   if (user.purchasedCourses.length > 0) {
     console.log(user.purchasedCourses);
